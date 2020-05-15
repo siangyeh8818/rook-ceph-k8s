@@ -1,20 +1,22 @@
-access_key=$(kubectl get secret -n rook-ceph rook-ceph-object-user-my-store-my-user -o json | jq .data.AccessKey | cut -d '"' -f 2 | base64 --decode)
-secret_key=$(kubectl get secret -n rook-ceph rook-ceph-object-user-my-store-my-user -o json | jq .data.SecretKey | cut -d '"' -f 2 | base64 --decode)
-ceph_rgw_ip=$(kubectl get svc -n rook-ceph | grep rgw | awk '{print $3}')
-ceph_rgw_endpoint=http://${ceph_rgw_ip}:80
+#!/bin/bash
 
-backup_path=$(pwd)"/backup"
-mkdir $backup_path
+backup_dir=/root/ceph-backup-$(date "+%Y%m%d-%H%M%S")
+mkdir -p $backup_dir
 
 start_time=$(date +"%s")
 
-bucket_list=($(aws s3 ls --endpoint ${ceph_rgw_endpoint} | awk '{print $3}'))
-echo ${bucket_list[2]}
-for bucket_name in ${bucket_list[@]}
-do
-    echo $bucket_name
-    aws s3 cp --recursive --endpoint http://${ceph_rgw_ip}:80 s3://${bucket_name} "${backup_path}/${bucket_name}"
-done
+download2() {
+  echo "------List all buckets name ----------"
+  backets_array=$(s3cmd ls | awk '{print $3}')
+  echo "------List backets_array  ----------"
+  for bucket in $backets_array
+  do
+     echo "Bucket name : $bucket"
+     s3cmd sync $bucket "$backup_dir/${bucket:5}"
+  done
+}
+
+download2
 
 end_time=$(date +"%s")
 duration=$(($end_time - $start_time))
